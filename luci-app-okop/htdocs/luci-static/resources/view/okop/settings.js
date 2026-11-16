@@ -74,6 +74,17 @@ function createSettingsContent(section) {
   o.datatype = "uinteger";
 
   o = section.option(
+    form.Value,
+    "dns_probe_domain",
+    _("DNS check domain"),
+    _(
+      "The DNS guard resolves it to check that the DNS server works. It must not be in any list: a domain from the lists gets a fake IP and the check always passes",
+    ),
+  );
+  o.placeholder = "openwrt.org";
+  o.datatype = "hostname";
+
+  o = section.option(
     widgets.DeviceSelect,
     "source_network_interfaces",
     _("Source Network Interface"),

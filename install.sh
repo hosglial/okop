@@ -96,9 +96,11 @@ confirm_podkop_removal() {
 }
 
 remove_podkop() {
+    /etc/init.d/podkop stop
+    # Copied after the stop: a running Podkop keeps shutdown_correctly=0, and Podkop installed back from
+    # such a copy takes the last shutdown for a crash and does not point dnsmasq at sing-box
     [ -f /etc/config/podkop ] && cp /etc/config/podkop "$PODKOP_CONFIG_BACKUP"
 
-    /etc/init.d/podkop stop
     /etc/init.d/podkop disable
     pkg_remove luci-i18n-podkop-ru
     pkg_remove luci-app-podkop
@@ -136,21 +138,25 @@ main() {
         fi
     fi
 
-    local grep_url_pattern
+    local pkg_ext
     if [ "$PKG_IS_APK" -eq 1 ]; then
-        grep_url_pattern='https://[^"[:space:]]*\.apk'
+        pkg_ext=apk
     else
-        grep_url_pattern='https://[^"[:space:]]*\.ipk'
+        pkg_ext=ipk
     fi
 
-    wget -qO- "$REPO" | grep -o "$grep_url_pattern" | while read -r url; do
-        filename=$(basename "$url")
+    # Assets are downloaded through api.github.com, not browser_download_url: the redirect from github.com
+    # carries a ~9 KB Content-Security-Policy header, and uclient-fetch (/usr/bin/wget) stalls until the
+    # timeout on header lines longer than its 4 KB buffer
+    wget -qO- "$REPO" | tr '{' '\n' \
+        | sed -n "s|.*\"url\":\"\([^\"]*/releases/assets/[0-9]*\)\".*\"name\":\"\([^\"]*\.$pkg_ext\)\".*|\1 \2|p" \
+        | while read -r url filename; do
         filepath="$DOWNLOAD_DIR/$filename"
 
         attempt=0
         while [ $attempt -lt $COUNT ]; do
             msg "Download $filename (count $((attempt+1)))..."
-            if wget -q -O "$filepath" "$url"; then
+            if wget -q --header="Accept: application/octet-stream" -O "$filepath" "$url"; then
                 if [ -s "$filepath" ]; then
                     msg "$filename successfully downloaded"
                     break

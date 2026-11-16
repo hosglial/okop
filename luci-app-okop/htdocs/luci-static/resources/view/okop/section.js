@@ -140,6 +140,20 @@ function createSectionContent(section) {
   o.rmempty = false;
 
   o = section.taboption(
+    "basic",
+    form.ListValue,
+    "on_failure",
+    _("If sing-box is down"),
+    _(
+      "What happens to the traffic of the lists while sing-box does not run or does not answer. A connection that does not respond always blocks it",
+    ),
+  );
+  o.value("block", _("Block it"));
+  o.value("direct", _("Let it go directly"));
+  o.default = "block";
+  o.depends("connection_type", "outbound");
+
+  o = section.taboption(
     "lists",
     form.DynamicList,
     "community_lists",

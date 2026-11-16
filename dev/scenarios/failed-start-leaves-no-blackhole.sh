@@ -4,7 +4,8 @@
 # does not exist. The start aborts, but the nft table and the ip rule were already installed, so
 # traffic to okop_subnets and to the fake-IP range kept being tproxy'd to a sing-box that is not
 # listening -- blackholed -- while domains resolved to real addresses and left in the clear.
-# Expected: a failed start removes the interception and gives dnsmasq back, i.e. okop is just off.
+# Expected: with on_failure "direct" a failed start removes the interception and gives dnsmasq back, i.e.
+# okop is just off. The default "block" is checked by failed-start-blocks-sections.
 
 set -eu
 
@@ -66,6 +67,7 @@ check_clean_after_failure() {
 load_fixture proxy
 info "Starting with a mixed proxy port sing-box cannot parse"
 on_router sh -c "
+    uci set okop.main.on_failure=direct
     uci set okop.dev_proxy.mixed_proxy_enabled=1
     uci set okop.dev_proxy.mixed_proxy_port=8080x
     uci commit okop
@@ -89,6 +91,8 @@ on_router sh -c "
     uci set okop.broken=section
     uci set okop.broken.connection_type=outbound
     uci set okop.broken.outbound=broken_out
+    uci set okop.main.on_failure=direct
+    uci set okop.broken.on_failure=direct
     uci add_list okop.broken.user_domains=example.org
     uci commit okop
     /etc/init.d/okop restart" > /dev/null 2>&1
@@ -106,6 +110,7 @@ load_fixture proxy
 on_router rm -rf "$MISSING_DIR"
 info "Starting with a config_path in a directory that does not exist"
 on_router sh -c "
+    uci set okop.main.on_failure=direct
     uci set okop.settings.config_path=$MISSING_DIR/config.json
     uci commit okop
     /etc/init.d/okop restart" > /dev/null 2>&1

@@ -101,6 +101,9 @@ msgstr "Доступные действия"
 msgid "Block"
 msgstr "Block"
 
+msgid "Block it"
+msgstr "Заблокировать"
+
 msgid "Bootsrap DNS"
 msgstr "Bootstrap DNS"
 
@@ -224,14 +227,17 @@ msgstr "Отключить QUIC протокол для улучшения со�
 msgid "Disabled"
 msgstr "Отключено"
 
-msgid "DNS and traffic to the lists go directly"
-msgstr "DNS и трафик к спискам идут напрямую"
+msgid "DNS check domain"
+msgstr "Домен проверки DNS"
 
 msgid "DNS does not work"
 msgstr "Не работает DNS"
 
-msgid "DNS goes through the regular servers, domains from the lists go directly"
-msgstr "DNS идёт через обычные серверы, домены из списков — напрямую"
+msgid "DNS goes through the regular servers. Domains of sections set to block on failure still go through sing-box, the other lists go directly"
+msgstr "DNS идёт через обычные серверы. Домены секций с блокировкой по-прежнему идут через sing-box, остальные списки — напрямую"
+
+msgid "DNS goes through the regular servers. The lists of sections set to block on failure are blocked, the other lists go directly"
+msgstr "DNS идёт через обычные серверы. Списки секций с блокировкой недоступны, остальные — напрямую"
 
 msgid "DNS guard"
 msgstr "Защита DNS"
@@ -382,6 +388,9 @@ msgstr "Ошибка HTTP"
 
 msgid "If lists cannot be downloaded through the selected connection, download them without it"
 msgstr "Если списки не скачиваются через выбранное подключение, скачать их без него"
+
+msgid "If sing-box is down"
+msgstr "Если sing-box не работает"
 
 msgid "Interface Monitoring"
 msgstr "Мониторинг интерфейса"
@@ -535,6 +544,9 @@ msgstr "Обнаружены проблемы"
 
 msgid "Latest"
 msgstr "Последняя"
+
+msgid "Let it go directly"
+msgstr "Пускать напрямую"
 
 msgid "list downloads"
 msgstr "скачивание списков"
@@ -881,6 +893,9 @@ msgstr "Запустить Okop"
 msgid "Stop okop"
 msgstr "Остановить Okop"
 
+msgid "Subnets of sections set to block on failure are blocked, the other lists go directly"
+msgstr "Подсети секций с блокировкой недоступны, остальные списки — напрямую"
+
 msgid "subnets: %d"
 msgstr "подсетей: %d"
 
@@ -904,6 +919,9 @@ msgstr "Текстовый список"
 
 msgid "The connection %s is used by: %s. Choose another connection there first."
 msgstr "Подключение %s используется: %s. Сначала выберите там другое подключение."
+
+msgid "The DNS guard resolves it to check that the DNS server works. It must not be in any list: a domain from the lists gets a fake IP and the check always passes"
+msgstr "Защита DNS резолвит его, чтобы проверить, что DNS-сервер работает. Его не должно быть ни в одном списке: домен из списков получает fake-IP, и проверка проходит всегда"
 
 msgid "The DNS server used to look up the IP address of an upstream DNS server"
 msgstr "DNS-сервер, используемый для поиска IP-адреса вышестоящего DNS-сервера"
@@ -934,9 +952,6 @@ msgstr "Время в секундах для кэширования DNS зап�
 
 msgid "Traffic"
 msgstr "Трафик"
-
-msgid "Traffic to the lists goes directly"
-msgstr "Трафик к спискам идёт напрямую"
 
 msgid "Traffic Total"
 msgstr "Всего трафика"
@@ -1021,6 +1036,9 @@ msgstr "Предупреждение: %s нельзя использовать �
 
 msgid "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection."
 msgstr "Предупреждение: Russia inside может быть использован только с %s. %s уже есть в Russia inside и будет удален из выбранных."
+
+msgid "What happens to the traffic of the lists while sing-box does not run or does not answer. A connection that does not respond always blocks it"
+msgstr "Что происходит с трафиком списков, пока sing-box не запущен или не отвечает. Если не отвечает само подключение, трафик не проходит в любом случае"
 
 msgid "YACD Secret Key"
 msgstr "Секретный ключ YACD"

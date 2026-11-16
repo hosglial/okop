@@ -35,7 +35,13 @@ start_service() {
 }
 
 stop_service() {
-    /usr/bin/okop stop
+    # A restart (Save & Apply in LuCI) keeps sections set to block on failure blocked until okop is back,
+    # only a deliberate stop unblocks them. rc.common sets $action.
+    if [ "$action" = "restart" ]; then
+        /usr/bin/okop stop_for_restart
+    else
+        /usr/bin/okop stop
+    fi
 }
 
 # The "Disable" button in LuCI Diagnostics calls this. Only removing the rc.d links left dnsmasq
