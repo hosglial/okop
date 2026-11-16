@@ -80,6 +80,7 @@ LuCI: http://127.0.0.1:8080, пользователь `root` без пароля
 | `reload-keeps-lists-routed` | После `reload` dnsmasq снова направляет запросы в sing-box, домены из списков маршрутизируются |
 | `diagnostics-mask-secrets` | Вывод диагностики не содержит ключа Clash API, путей DoH, логинов и паролей прокси и WAN |
 | `dns-guard-detects-dead-upstream` | DNS-сервер sing-box недоступен: защита DNS возвращает dnsmasq на обычные серверы |
+| `dns-probe-domain-setting` | Домен проверки DNS берётся из настроек: с `openwrt.org` в списке защита DNS всё равно замечает недоступный DNS-сервер |
 | `dns-guard-status` | `okop get_dns_guard_status` показывает состояние защиты DNS и время переключения |
 | `list-update-status` | Обновление списков по кнопке: запуск в фоне, повторное нажатие, список с ошибкой, нет сети, прерванное обновление |
 | `list-update-retry-after-button` | Кнопка обновления списков во время повторов при старте: повторы продолжаются, пока нет сети |

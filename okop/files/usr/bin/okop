@@ -687,10 +687,17 @@ sing_box_dns_available() {
 # forward to the configured DNS server. Being alive does not imply this: a blocked or dead dns_server
 # leaves the whole LAN unable to resolve anything while sing-box keeps answering the check above.
 # If the probe domain happens to be in one of the user's lists, the answer is a fake IP, which is
-# still an answer -- the check then proves nothing and deliberately counts as success.
+# still an answer -- the check then proves nothing and deliberately counts as success. The domain is a
+# setting for that reason: a community list may well contain the default one.
 sing_box_dns_resolves() {
-    dig +short +time=3 +tries=1 @"$SB_DNS_INBOUND_ADDRESS" "$DNS_PROBE_DOMAIN" A 2> /dev/null |
+    dig +short +time=3 +tries=1 @"$SB_DNS_INBOUND_ADDRESS" "$(get_dns_probe_domain)" A 2> /dev/null |
         grep -qE '^[0-9]+(\.[0-9]+){3}$'
+}
+
+get_dns_probe_domain() {
+    local dns_probe_domain
+    config_get dns_probe_domain "settings" "dns_probe_domain" "$DNS_PROBE_DOMAIN_DEFAULT"
+    echo "$dns_probe_domain"
 }
 
 # Marked traffic is routed to sing-box only while sing-box is running. Without the rule the marked
@@ -1125,7 +1132,7 @@ dns_guard() {
                 :
             elif [ "$unresolved" -ge "$DNS_GUARD_MAX_UNRESOLVED" ]; then
                 if dnsmasq_uses_sing_box; then
-                    log "sing-box cannot resolve $DNS_PROBE_DOMAIN, its DNS server is probably unreachable. Switching dnsmasq back to the upstream DNS servers" "error"
+                    log "sing-box cannot resolve $(get_dns_probe_domain), its DNS server is probably unreachable. Switching dnsmasq back to the upstream DNS servers" "error"
                     dnsmasq_restore
                 fi
             elif [ "$unresolved" -eq 0 ] && ! dnsmasq_uses_sing_box; then

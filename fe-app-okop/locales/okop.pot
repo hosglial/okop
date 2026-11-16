@@ -100,7 +100,7 @@ msgstr ""
 msgid "Advanced"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:232
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:243
 msgid "Allows access to YACD from the WAN. Make sure to open the appropriate port in your firewall."
 msgstr ""
 
@@ -153,11 +153,11 @@ msgstr ""
 msgid "Browser is using FakeIP correctly"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:334
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:345
 msgid "Cache File Path"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:348
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:359
 msgid "Cache file path cannot be empty"
 msgstr ""
 
@@ -212,7 +212,7 @@ msgstr ""
 msgid "Community Lists"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:321
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:332
 msgid "Config File Path"
 msgstr ""
 
@@ -235,7 +235,7 @@ msgstr ""
 msgid "Connection %s does not exist"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:283
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:294
 msgid "Connection for Downloading Lists"
 msgstr ""
 
@@ -276,7 +276,7 @@ msgstr ""
 msgid "Default: 15s for fallback, 3m for fastest"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:212
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:223
 msgid "Delay in milliseconds before reloading okop after interface UP"
 msgstr ""
 
@@ -288,7 +288,7 @@ msgstr ""
 msgid "Diagnostics"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:371
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:382
 msgid "Directory for downloaded .srs and .json lists. Lists are kept across reboots, so sing-box starts even when they cannot be downloaded"
 msgstr ""
 
@@ -296,17 +296,21 @@ msgstr ""
 msgid "Disable autostart"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:251
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:262
 msgid "Disable QUIC"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:252
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:263
 msgid "Disable the QUIC protocol to improve compatibility or fix issues with video streaming"
 msgstr ""
 
 #: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:252
 #: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:335
 msgid "Disabled"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:79
+msgid "DNS check domain"
 msgstr ""
 
 #: src/okop/tabs/dashboard/getListUpdateRow.ts:31
@@ -373,7 +377,7 @@ msgstr ""
 msgid "domains: %d"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:312
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:323
 msgid "Dont Touch My DHCP!"
 msgstr ""
 
@@ -386,15 +390,15 @@ msgstr ""
 msgid "Download"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:275
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:286
 msgid "Download all lists through one of the connections instead of directly"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:300
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:311
 msgid "Download Lists Directly if the Connection Fails"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:274
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:285
 msgid "Download Lists via a Connection"
 msgstr ""
 
@@ -415,15 +419,15 @@ msgstr ""
 msgid "Enable Mixed Proxy"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:116
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:127
 msgid "Enable Output Network Interface"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:222
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:233
 msgid "Enable YACD"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:231
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:242
 msgid "Enable YACD WAN Access"
 msgstr ""
 
@@ -455,11 +459,11 @@ msgstr ""
 msgid "Enter the outbound configuration"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:412
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:423
 msgid "Exclude NTP"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:413
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:424
 msgid "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN"
 msgstr ""
 
@@ -531,7 +535,7 @@ msgstr ""
 msgid "HTTP error"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:301
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:312
 msgid "If lists cannot be downloaded through the selected connection, download them without it"
 msgstr ""
 
@@ -539,15 +543,15 @@ msgstr ""
 msgid "If sing-box is down"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:179
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:190
 msgid "Interface Monitoring"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:211
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:222
 msgid "Interface Monitoring Delay"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:180
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:191
 msgid "Interface monitoring for Bad WAN"
 msgstr ""
 
@@ -753,7 +757,7 @@ msgstr ""
 msgid "list downloads"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:262
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:273
 msgid "List Update Frequency"
 msgstr ""
 
@@ -763,7 +767,7 @@ msgstr ""
 msgid "Lists"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:284
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:295
 msgid "Lists are downloaded through this connection"
 msgstr ""
 
@@ -771,7 +775,7 @@ msgstr ""
 msgid "Lists downloaded before keep working"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:370
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:381
 msgid "Lists Storage Path"
 msgstr ""
 
@@ -795,7 +799,7 @@ msgstr ""
 msgid "Local Subnet Lists"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:394
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:405
 msgid "Log Level"
 msgstr ""
 
@@ -823,7 +827,7 @@ msgstr ""
 msgid "Mixed Proxy Port"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:188
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:199
 msgid "Monitored Interfaces"
 msgstr ""
 
@@ -907,7 +911,7 @@ msgstr ""
 msgid "Okop Settings"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:313
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:324
 msgid "Okop will not modify your DHCP configuration"
 msgstr ""
 
@@ -931,25 +935,25 @@ msgstr ""
 msgid "Outdated"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:125
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:136
 msgid "Output Network Interface"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:381
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:392
 #: src/validators/validatePath.ts:7
 msgid "Path cannot be empty"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:352
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:385
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:363
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:396
 msgid "Path must be absolute (start with /)"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:361
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:372
 msgid "Path must contain at least one directory (like /tmp/cache.db)"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:356
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:367
 msgid "Path must end with cache.db"
 msgstr ""
 
@@ -1031,7 +1035,7 @@ msgstr ""
 msgid "Router DNS is routed through sing-box"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:423
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:434
 msgid "Routing Excluded IPs"
 msgstr ""
 
@@ -1067,7 +1071,7 @@ msgstr ""
 msgid "Russia inside restrictions"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:242
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:253
 msgid "Secret key for authenticating remote access to YACD when WAN access is enabled."
 msgstr ""
 
@@ -1091,7 +1095,7 @@ msgstr ""
 msgid "Select DNS protocol to use"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:263
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:274
 msgid "Select how often the domain or subnet lists are updated automatically"
 msgstr ""
 
@@ -1104,11 +1108,11 @@ msgstr ""
 msgid "Select or enter DNS server address"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:335
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:346
 msgid "Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:322
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:333
 msgid "Select path for sing-box config file. Change this ONLY if you know what you are doing"
 msgstr ""
 
@@ -1124,19 +1128,19 @@ msgstr ""
 msgid "Select the list type for adding custom subnets"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:395
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:406
 msgid "Select the log level for sing-box"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:80
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:91
 msgid "Select the network interface from which the traffic will originate"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:126
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:137
 msgid "Select the network interface to which the traffic will originate"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:189
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:200
 msgid "Select the WAN interfaces to be monitored"
 msgstr ""
 
@@ -1193,11 +1197,11 @@ msgstr ""
 msgid "Sing-box version is compatible (newer than 1.12.4)"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:79
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:90
 msgid "Source Network Interface"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:424
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:435
 msgid "Specify a local IP address to be excluded from routing"
 msgstr ""
 
@@ -1265,6 +1269,10 @@ msgstr ""
 
 #: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:257
 msgid "The connection %s is used by: %s. Choose another connection there first."
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:80
+msgid "The DNS guard resolves it to check that the DNS server works. It must not be in any list: a domain from the lists gets a fake IP and the check always passes"
 msgstr ""
 
 #: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:46
@@ -1447,10 +1455,10 @@ msgstr ""
 msgid "What happens to the traffic of the lists while sing-box does not run or does not answer. A connection that does not respond always blocks it"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:241
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:252
 msgid "YACD Secret Key"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:117
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:128
 msgid "You can select Output Network Interface, by default autodetect"
 msgstr ""

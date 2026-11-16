@@ -227,6 +227,9 @@ msgstr "Отключить QUIC протокол для улучшения со�
 msgid "Disabled"
 msgstr "Отключено"
 
+msgid "DNS check domain"
+msgstr "Домен проверки DNS"
+
 msgid "DNS does not work"
 msgstr "Не работает DNS"
 
@@ -916,6 +919,9 @@ msgstr "Текстовый список"
 
 msgid "The connection %s is used by: %s. Choose another connection there first."
 msgstr "Подключение %s используется: %s. Сначала выберите там другое подключение."
+
+msgid "The DNS guard resolves it to check that the DNS server works. It must not be in any list: a domain from the lists gets a fake IP and the check always passes"
+msgstr "Защита DNS резолвит его, чтобы проверить, что DNS-сервер работает. Его не должно быть ни в одном списке: домен из списков получает fake-IP, и проверка проходит всегда"
 
 msgid "The DNS server used to look up the IP address of an upstream DNS server"
 msgstr "DNS-сервер, используемый для поиска IP-адреса вышестоящего DNS-сервера"
