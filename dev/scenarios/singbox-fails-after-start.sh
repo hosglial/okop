@@ -3,8 +3,8 @@
 # A config that passes "sing-box check" but fails when sing-box runs: the mixed proxy port is the
 # Clash API port (both listen on the LAN address). check does not bind ports, so the start used to
 # succeed while sing-box crash-looped behind the installed interception.
-# Expected: okop notices that sing-box did not come up and rolls back: no nft table, dnsmasq given
-# back, client DNS works.
+# Expected: okop notices that sing-box did not come up and rolls back: with on_failure "direct" no nft
+# table, dnsmasq given back, client DNS works.
 
 set -eu
 
@@ -20,6 +20,7 @@ result=0
 load_fixture proxy
 info "Starting with the mixed proxy on the Clash API port"
 on_router sh -c "
+    uci set okop.main.on_failure=direct
     uci set okop.dev_proxy.mixed_proxy_enabled=1
     uci set okop.dev_proxy.mixed_proxy_port=9090
     uci commit okop

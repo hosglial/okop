@@ -63,7 +63,9 @@ describe('getDnsGuardRow', () => {
     expect(row.value).toBe(
       `⚠ sing-box is not responding since ${formatSince(TODAY, NOW)}`,
     );
-    expect(row.hint).toBe('DNS and traffic to the lists go directly');
+    expect(row.hint).toBe(
+      'DNS goes through the regular servers. The lists of sections set to block on failure are blocked, the other lists go directly',
+    );
     expect(row.attributes.class).toContain('--warning');
   });
 
@@ -79,7 +81,9 @@ describe('getDnsGuardRow', () => {
       NOW,
     );
 
-    expect(row.hint).toBe('Traffic to the lists goes directly');
+    expect(row.hint).toBe(
+      'Subnets of sections set to block on failure are blocked, the other lists go directly',
+    );
   });
 
   it('shows a stopped guard in red', () => {

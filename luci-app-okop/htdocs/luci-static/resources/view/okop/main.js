@@ -667,9 +667,7 @@ var OkopShellMethods = {
   checkDNSAvailable: async () => callBaseMethod(
     Okop.AvailableMethods.CHECK_DNS_AVAILABLE
   ),
-  checkFakeIP: async () => callBaseMethod(
-    Okop.AvailableMethods.CHECK_FAKEIP
-  ),
+  checkFakeIP: async () => callBaseMethod(Okop.AvailableMethods.CHECK_FAKEIP),
   checkNftRules: async () => callBaseMethod(
     Okop.AvailableMethods.CHECK_NFT_RULES
   ),
@@ -715,11 +713,7 @@ var OkopShellMethods = {
     [],
     "/etc/init.d/okop"
   ),
-  stop: async () => callBaseMethod(
-    Okop.AvailableMethods.STOP,
-    [],
-    "/etc/init.d/okop"
-  ),
+  stop: async () => callBaseMethod(Okop.AvailableMethods.STOP, [], "/etc/init.d/okop"),
   enable: async () => callBaseMethod(
     Okop.AvailableMethods.ENABLE,
     [],
@@ -733,9 +727,7 @@ var OkopShellMethods = {
   globalCheck: async () => callBaseMethod(Okop.AvailableMethods.GLOBAL_CHECK),
   showSingBoxConfig: async () => callBaseMethod(Okop.AvailableMethods.SHOW_SING_BOX_CONFIG),
   checkLogs: async () => callBaseMethod(Okop.AvailableMethods.CHECK_LOGS),
-  getSystemInfo: async () => callBaseMethod(
-    Okop.AvailableMethods.GET_SYSTEM_INFO
-  )
+  getSystemInfo: async () => callBaseMethod(Okop.AvailableMethods.GET_SYSTEM_INFO)
 };
 
 // src/okop/methods/custom/getDashboardSections.ts
@@ -1546,10 +1538,7 @@ var OkopLogWatcher = class _OkopLogWatcher {
     this.running = true;
     this.checkOnce();
     this.timer = setInterval(() => this.checkOnce(), this.intervalMs);
-    logger.info(
-      "[OkopLogWatcher]",
-      `started (interval: ${this.intervalMs}ms)`
-    );
+    logger.info("[OkopLogWatcher]", `started (interval: ${this.intervalMs}ms)`);
   }
   stop() {
     if (!this.running) return;
@@ -2076,7 +2065,11 @@ function getDnsGuardRow(status, now = /* @__PURE__ */ new Date()) {
       return {
         key,
         value: withSince(_("\u26A0 sing-box is not responding"), status.since, now),
-        hint: manageDnsmasq ? _("DNS and traffic to the lists go directly") : _("Traffic to the lists goes directly"),
+        hint: manageDnsmasq ? _(
+          "DNS goes through the regular servers. The lists of sections set to block on failure are blocked, the other lists go directly"
+        ) : _(
+          "Subnets of sections set to block on failure are blocked, the other lists go directly"
+        ),
         attributes: { class: `${ROW_CLASS}--warning` }
       };
     case "dns_server_down":
@@ -2088,7 +2081,7 @@ function getDnsGuardRow(status, now = /* @__PURE__ */ new Date()) {
           now
         ),
         hint: _(
-          "DNS goes through the regular servers, domains from the lists go directly"
+          "DNS goes through the regular servers. Domains of sections set to block on failure still go through sing-box, the other lists go directly"
         ),
         attributes: { class: `${ROW_CLASS}--warning` }
       };
@@ -4293,9 +4286,7 @@ function getOkopVersionRow(diagnosticsSystemInfo) {
   const loading = diagnosticsSystemInfo.loading;
   const unknown = isUnknownVersion(diagnosticsSystemInfo.okop_version);
   const hasActualVersion = Boolean(diagnosticsSystemInfo.okop_latest_version) && !isUnknownVersion(diagnosticsSystemInfo.okop_latest_version);
-  const version = normalizeCompiledVersion(
-    diagnosticsSystemInfo.okop_version
-  );
+  const version = normalizeCompiledVersion(diagnosticsSystemInfo.okop_version);
   const isDevVersion = version === "dev";
   if (loading || unknown || !hasActualVersion || isDevVersion) {
     return {

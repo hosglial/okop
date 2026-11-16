@@ -38,8 +38,12 @@ export function getDnsGuardRow(
         key,
         value: withSince(_('⚠ sing-box is not responding'), status.since, now),
         hint: manageDnsmasq
-          ? _('DNS and traffic to the lists go directly')
-          : _('Traffic to the lists goes directly'),
+          ? _(
+              'DNS goes through the regular servers. The lists of sections set to block on failure are blocked, the other lists go directly',
+            )
+          : _(
+              'Subnets of sections set to block on failure are blocked, the other lists go directly',
+            ),
         attributes: { class: `${ROW_CLASS}--warning` },
       };
     case 'dns_server_down':
@@ -51,7 +55,7 @@ export function getDnsGuardRow(
           now,
         ),
         hint: _(
-          'DNS goes through the regular servers, domains from the lists go directly',
+          'DNS goes through the regular servers. Domains of sections set to block on failure still go through sing-box, the other lists go directly',
         ),
         attributes: { class: `${ROW_CLASS}--warning` },
       };

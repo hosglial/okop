@@ -3,7 +3,9 @@
 # start, stop and reload were not serialized: a stop arriving while a start was still running (LuCI
 # buttons, Save & Apply twice, interface monitoring at boot) cleaned up first, and then the start went on
 # and installed the interception again, leaving a half-running okop.
-# Expected: whatever the order, the last command wins: after "start, then stop" okop is fully off.
+# Expected: whatever the order, the last command wins: after "start, then stop" okop is fully off. With
+# on_failure "direct" a start killed with TERM removes the interception; with "block" procd sends a stop
+# right after, which unblocks (failed-start-blocks-sections).
 
 set -eu
 
@@ -12,6 +14,7 @@ set -eu
 result=0
 
 load_fixture proxy
+on_router sh -c "uci set okop.main.on_failure=direct; uci commit okop"
 
 info "Stopping okop while a start is still running"
 on_router sh -c '

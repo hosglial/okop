@@ -51,6 +51,15 @@ FALLBACK_MIN_SUCCESSES=3
 FALLBACK_TEST_TIMEOUT=5000
 # Checked through connection groups (URLTest, fallback) unless the group sets its own URL
 CONNECTION_CHECK_URL="https://www.gstatic.com/generate_204"
+# dnsmasq configuration with the domains of sections set to block on failure: they are always resolved
+# by sing-box, so they do not resolve at all while it is down. Domains of exclusions go to the upstream
+# servers ("#"), they may be inside a blocked one. Kept in the conf-dir of dnsmasq, see dnsmasq_conf_dir.
+DNSMASQ_BLOCKED_DOMAINS_FILE_NAME="okop-blocked-domains.conf"
+# A failed start that leaves sections blocked is retried after these delays, doubling in between
+START_RETRY_MIN_DELAY=60
+START_RETRY_MAX_DELAY=1800
+START_RETRY_PID_FILE="/var/run/okop_start_retry.pid"
+START_RETRY_DELAY_FILE="/var/run/okop_start_retry.delay"
 # Seconds start waits for sing-box to serve before it rolls back
 SING_BOX_START_TIMEOUT=30
 
@@ -60,6 +69,18 @@ NFT_LOCALV4_SET_NAME="localv4"
 NFT_COMMON_SET_NAME="okop_subnets"
 NFT_FULLY_ROUTED_CHAIN_NAME="fully_routed"
 NFT_DISCORD_SET_NAME="okop_discord_subnets"
+NFT_LOCALV4_ELEMENTS="0.0.0.0/8, 10.0.0.0/8, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.0.0.0/24, 192.0.2.0/24, 192.88.99.0/24, 192.168.0.0/16, 198.51.100.0/24, 203.0.113.0/24, 224.0.0.0/4, 240.0.0.0-255.255.255.255"
+# Rejects the traffic of sections set to block on failure (on_failure "block") while sing-box is down. A table
+# of its own, kept over restart and reload; its chain holds rules only while sing-box is down.
+NFT_KILLSWITCH_TABLE_NAME="OkopKillswitch"
+NFT_KILLSWITCH_CHAIN_NAME="forward"
+NFT_KILLSWITCH_BLOCKED_SET_NAME="blocked_subnets"
+NFT_KILLSWITCH_DISCORD_SET_NAME="blocked_discord_subnets"
+NFT_KILLSWITCH_EXCLUDED_SET_NAME="excluded_subnets"
+# Subnets for the killswitch noted while generating the configuration and while importing the lists,
+# "<set> <subnet>" per line
+KILLSWITCH_SUBNETS_CONFIG="$TMP_SING_BOX_FOLDER/killswitch_subnets.config"
+KILLSWITCH_SUBNETS_LISTS="$TMP_SING_BOX_FOLDER/killswitch_subnets.lists"
 NFT_INTERFACE_SET_NAME="interfaces"
 NFT_FAKEIP_MARK="0x00100000"
 NFT_OUTBOUND_MARK="0x00200000"
@@ -73,6 +94,7 @@ SB_FAKEIP_INET4_RANGE="198.18.0.0/15"
 SB_BOOTSTRAP_SERVER_TAG="bootstrap-dns-server"
 SB_FAKEIP_DNS_RULE_TAG="fakeip-dns-rule-tag"
 SB_FAKEIP_SERVICE_DNS_RULE_TAG="fakeip-service-dns-rule-tag"
+SB_EXCLUSION_DNS_RULE_TAG="exclusion-dns-rule-tag"
 SB_INVERT_FAKEIP_DNS_RULE_TAG="invert-fakeip-dns-rule-tag"
 # Inbounds
 SB_TPROXY_INBOUND_TAG="tproxy-in"

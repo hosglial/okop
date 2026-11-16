@@ -121,6 +121,8 @@ start_main() {
     mkdir -p "$TMP_RULESET_FOLDER"
     mkdir -p "$(get_ruleset_cache_path)"
     cleanup_previous_run
+    # Before the interception: kept from a restart or reload it may be blocking right now
+    killswitch_setup
 
     # Every "exit" from here until sing-box is started leaves the interception without sing-box behind it.
     # Exits inside $(...) do not run the trap, the subshell resets it.
@@ -134,7 +136,14 @@ start_main() {
     sing_box_configure_service
 
     # sing-box
+    KILLSWITCH_STAGING="$KILLSWITCH_SUBNETS_CONFIG"
+    : > "$KILLSWITCH_STAGING"
     sing_box_init_config
+    KILLSWITCH_STAGING=""
+    killswitch_commit
+    # Before sing-box starts: the domains of sections set to block on failure must not resolve to real
+    # addresses if it never comes up. A file kept from a restart or reload is updated by the lists import.
+    [ -f "$(dnsmasq_blocked_domains_file)" ] || update_blocked_domains
     config_foreach add_cron_job "section"
     /etc/init.d/sing-box start
 
@@ -146,6 +155,10 @@ start_main() {
     fi
 
     trap - EXIT TERM INT
+
+    # Kept on over a restart or reload, or left on by a failed start being retried
+    killswitch_off
+    start_retry_cancel
 
     log "Nice"
     # Detached from the caller's stdin/stdout, otherwise "okop reload" over SSH waits for list_update to finish.
@@ -173,18 +186,26 @@ wait_for_sing_box() {
 # A start that fails after the nft rules are in place is worse than okop not running at all: packets
 # to okop_subnets and to the fake-IP range are still marked and tproxy'd to a sing-box that is not
 # listening, so they are blackholed, while domains resolve to real addresses and leave in the clear.
-# Undoing the interception turns a broken configuration into "okop is simply off".
+# Undoing the interception turns a broken configuration into "okop is simply off". Sections set to block
+# on failure stay blocked instead: the table is kept without the ip rule, as while sing-box is down at runtime.
 start_rollback() {
-    log "Start failed, removing the traffic interception" "error"
-
     # It may be crash-looping on a config it cannot run
     /etc/init.d/sing-box stop 2> /dev/null
 
-    if nft list table inet "$NFT_TABLE_NAME" > /dev/null 2>&1; then
-        nft delete table inet "$NFT_TABLE_NAME"
+    if killswitch_table_exists; then
+        log "Start failed, the traffic of sections set to block on failure is blocked, the other lists go directly" "error"
+        killswitch_on
+        delete_mark_rules
+        # The subnets of community and remote lists are imported only after a successful start
+        nft list table inet "$NFT_TABLE_NAME" > /dev/null 2>&1 && import_lists "cached"
+        start_retry_schedule
+    else
+        log "Start failed, removing the traffic interception" "error"
+        if nft list table inet "$NFT_TABLE_NAME" > /dev/null 2>&1; then
+            nft delete table inet "$NFT_TABLE_NAME"
+        fi
+        delete_mark_rules
     fi
-
-    delete_mark_rules
 
     dnsmasq_restore
 }
@@ -257,8 +278,28 @@ start() {
     fallback_guard_start
 }
 
+# A deliberate stop: nothing stays blocked
 stop() {
+    start_retry_cancel
     dns_guard_stop
+    fallback_guard_stop
+
+    # Removed before dnsmasq is restored, so that it is restarted once
+    if remove_blocked_domains "keep_dnsmasq" && ! dnsmasq_uses_sing_box && ! dnsmasq_switched_by_okop; then
+        /etc/init.d/dnsmasq restart
+    fi
+    dnsmasq_restore
+
+    stop_main
+    killswitch_destroy
+}
+
+# The stop half of a restart (Save & Apply in LuCI): sections set to block on failure stay blocked until
+# sing-box serves again
+stop_for_restart() {
+    # The guard first: it would turn the killswitch off again while sing-box still answers
+    dns_guard_stop
+    killswitch_on
     fallback_guard_stop
 
     dnsmasq_restore
@@ -273,6 +314,7 @@ reload() {
     # from the lists was routed although every status check reported a healthy okop. Restoring
     # before stop_main also keeps the LAN resolving while sing-box is down.
     dns_guard_stop
+    killswitch_on
     fallback_guard_stop
     dnsmasq_restore
 
@@ -285,7 +327,7 @@ reload() {
 
 restart() {
     log "Okop restart"
-    stop
+    stop_for_restart
     start
 }
 
@@ -377,21 +419,7 @@ create_nft_rules() {
 
     log "Create localv4 set"
     nft_create_ipv4_set "$NFT_TABLE_NAME" "$NFT_LOCALV4_SET_NAME"
-    nft add element inet "$NFT_TABLE_NAME" localv4 '{
-        0.0.0.0/8,
-        10.0.0.0/8,
-        127.0.0.0/8,
-        169.254.0.0/16,
-        172.16.0.0/12,
-        192.0.0.0/24,
-        192.0.2.0/24,
-        192.88.99.0/24,
-        192.168.0.0/16,
-        198.51.100.0/24,
-        203.0.113.0/24,
-        224.0.0.0/4,
-        240.0.0.0-255.255.255.255
-    }'
+    nft add element inet "$NFT_TABLE_NAME" "$NFT_LOCALV4_SET_NAME" "{ $NFT_LOCALV4_ELEMENTS }"
 
     log "Create common set"
     nft_create_ipv4_set "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
@@ -672,13 +700,369 @@ interception_attach() {
         log "sing-box is back, routing the lists through it again"
         ip -4 rule add fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority 105
     fi
+    killswitch_off
 }
 
 interception_detach() {
     if ip -4 rule list | grep -q "lookup $RT_TABLE_NAME"; then
-        log "sing-box is down, traffic to the lists goes directly until it is back" "error"
+        if has_blocking_sections; then
+            log "sing-box is down, traffic to the lists goes directly until it is back, except sections set to block it" "error"
+        else
+            log "sing-box is down, traffic to the lists goes directly until it is back" "error"
+        fi
         delete_mark_rules
     fi
+    killswitch_on
+}
+
+# Whether the traffic of a section is blocked while sing-box is down (on_failure "block", the default)
+# instead of going directly. Only sections routed through a connection have the choice.
+section_blocks_on_failure() {
+    local section="$1"
+
+    local connection_type on_failure
+    config_get connection_type "$section" "connection_type"
+    [ "$connection_type" = "outbound" ] || return 1
+    config_get on_failure "$section" "on_failure" "block"
+    [ "$on_failure" = "block" ]
+}
+
+has_blocking_sections() {
+    local sections section
+    sections="$(get_sections_by_connection_type "outbound")"
+    for section in $sections; do
+        section_blocks_on_failure "$section" && return 0
+    done
+
+    return 1
+}
+
+# Adds the subnets of a plain list file to an nft set of the routed subnets, and notes them for the killswitch:
+# subnets of sections set to block on failure are rejected while sing-box is down, subnets of exclusions are
+# let through. KILLSWITCH_STAGING is the file of the current pass, killswitch_commit applies it.
+nft_add_section_subnets_from_file() {
+    local filepath="$1"
+    local section="$2"
+    local set_name="${3:-$NFT_COMMON_SET_NAME}"
+
+    nft_add_set_elements_from_file_chunked "$filepath" "$NFT_TABLE_NAME" "$set_name"
+
+    [ -n "$KILLSWITCH_STAGING" ] || return 0
+    local connection_type killswitch_set=""
+    config_get connection_type "$section" "connection_type"
+    if [ "$connection_type" = "exclusion" ]; then
+        killswitch_set="$NFT_KILLSWITCH_EXCLUDED_SET_NAME"
+    elif section_blocks_on_failure "$section"; then
+        if [ "$set_name" = "$NFT_DISCORD_SET_NAME" ]; then
+            killswitch_set="$NFT_KILLSWITCH_DISCORD_SET_NAME"
+        else
+            killswitch_set="$NFT_KILLSWITCH_BLOCKED_SET_NAME"
+        fi
+    fi
+    [ -n "$killswitch_set" ] || return 0
+
+    local normalized
+    normalized="$(mktemp)"
+    normalize_plain_list "$filepath" "$normalized" "subnets"
+    awk -v set="$killswitch_set" '{ print set, $0 }' "$normalized" >> "$KILLSWITCH_STAGING"
+    rm -f "$normalized"
+}
+
+# The killswitch has a table of its own: "okop stop" removes it, while restart and reload, which delete the
+# main table, keep it, so that blocked sections do not leak while okop restarts (Save & Apply in LuCI,
+# interface monitoring). It exists only while some section is set to block on failure.
+killswitch_table_exists() {
+    nft list table inet "$NFT_KILLSWITCH_TABLE_NAME" > /dev/null 2>&1
+}
+
+killswitch_setup() {
+    if ! has_blocking_sections; then
+        killswitch_destroy
+        return 0
+    fi
+
+    local table="$NFT_KILLSWITCH_TABLE_NAME" set script interface source_network_interfaces
+    nft add table inet "$table"
+    for set in "$NFT_KILLSWITCH_BLOCKED_SET_NAME" "$NFT_KILLSWITCH_DISCORD_SET_NAME" \
+        "$NFT_KILLSWITCH_EXCLUDED_SET_NAME" "$NFT_LOCALV4_SET_NAME"; do
+        nft_create_ipv4_set "$table" "$set"
+    done
+    nft_create_ifname_set "$table" "$NFT_INTERFACE_SET_NAME"
+    nft add chain inet "$table" "$NFT_KILLSWITCH_CHAIN_NAME" \
+        '{ type filter hook forward priority -10; policy accept; }'
+
+    # Kept from a restart: refilled in one transaction, the rules using them never see them empty
+    config_get source_network_interfaces "settings" "source_network_interfaces" "br-lan"
+    script="$(mktemp)"
+    {
+        echo "flush set inet $table $NFT_INTERFACE_SET_NAME"
+        for interface in $source_network_interfaces; do
+            echo "add element inet $table $NFT_INTERFACE_SET_NAME { $interface }"
+        done
+        echo "flush set inet $table $NFT_LOCALV4_SET_NAME"
+        echo "add element inet $table $NFT_LOCALV4_SET_NAME { $NFT_LOCALV4_ELEMENTS }"
+    } > "$script"
+    nft -f "$script" || log "Cannot fill the sets of the killswitch" "error"
+    rm -f "$script"
+
+    # The settings may have changed (fully routed IPs, exclusions). Replaced in one transaction: flushed and
+    # added one by one, the chain would be empty for a moment while okop restarts
+    if killswitch_is_on; then
+        killswitch_apply_rules "flush"
+    fi
+}
+
+killswitch_destroy() {
+    killswitch_table_exists || return 0
+
+    log "Removing the killswitch" "debug"
+    nft delete table inet "$NFT_KILLSWITCH_TABLE_NAME"
+    rm -f "$KILLSWITCH_SUBNETS_CONFIG" "$KILLSWITCH_SUBNETS_LISTS"
+}
+
+# Replaces the subnets of the killswitch with those noted during the configuration (user and local lists)
+# and the last import of the lists, in one transaction
+killswitch_commit() {
+    killswitch_table_exists || return 0
+
+    local table="$NFT_KILLSWITCH_TABLE_NAME" set script
+    script="$(mktemp)"
+    for set in "$NFT_KILLSWITCH_BLOCKED_SET_NAME" "$NFT_KILLSWITCH_DISCORD_SET_NAME" "$NFT_KILLSWITCH_EXCLUDED_SET_NAME"; do
+        echo "flush set inet $table $set"
+        cat "$KILLSWITCH_SUBNETS_CONFIG" "$KILLSWITCH_SUBNETS_LISTS" 2> /dev/null |
+            awk -v set="$set" '$1 == set { print $2 }' | sort -u |
+            awk -v head="add element inet $table $set" '
+                { printf "%s%s", ((NR - 1) % 5000 == 0) ? head " { " : ",", $0 }
+                NR % 5000 == 0 { print " }" }
+                END { if (NR % 5000 != 0) print " }" }'
+    done > "$script"
+    nft -f "$script" || log "Cannot update the subnets of the killswitch" "error"
+    rm -f "$script"
+}
+
+killswitch_is_on() {
+    nft list chain inet "$NFT_KILLSWITCH_TABLE_NAME" "$NFT_KILLSWITCH_CHAIN_NAME" 2> /dev/null | grep -q reject
+}
+
+# While sing-box is down marked traffic takes the main routing table, i.e. goes directly. For sections set
+# to block on failure it is rejected instead: their subnets, their fully routed devices, and fake IPs
+# clients still have cached. Their domains do not resolve then, see update_blocked_domains.
+killswitch_on() {
+    killswitch_table_exists || return 0
+    killswitch_is_on && return 0
+
+    log "Blocking the traffic of sections set to block it while sing-box is down" "warn"
+    killswitch_apply_rules
+}
+
+# Writes the rules into the killswitch chain in one nft transaction, after flushing it with "flush". The same
+# exceptions as the interception has (port forwards, NTP), plus devices excluded from routing and the subnets
+# of exclusions.
+killswitch_apply_rules() {
+    local mode="$1"
+
+    local script exclude_ntp
+    local prefix="add rule inet $NFT_KILLSWITCH_TABLE_NAME $NFT_KILLSWITCH_CHAIN_NAME"
+    local lan="iifname @$NFT_INTERFACE_SET_NAME"
+    config_get_bool exclude_ntp "settings" "exclude_ntp" "0"
+
+    script="$(mktemp)"
+    {
+        [ "$mode" = "flush" ] && echo "flush chain inet $NFT_KILLSWITCH_TABLE_NAME $NFT_KILLSWITCH_CHAIN_NAME"
+        echo "$prefix ct status dnat return"
+        [ "$exclude_ntp" -eq 1 ] && echo "$prefix udp dport 123 return"
+        config_list_foreach "settings" "routing_excluded_ips" killswitch_excluded_ip_rule "$prefix"
+        echo "$prefix ip daddr @$NFT_KILLSWITCH_EXCLUDED_SET_NAME return"
+        echo "$prefix $lan ip daddr @$NFT_KILLSWITCH_BLOCKED_SET_NAME counter reject"
+        # Discord voice subnets are routed only on these ports, see create_nft_rules
+        echo "$prefix $lan ip daddr @$NFT_KILLSWITCH_DISCORD_SET_NAME udp dport { 19000-20000, 50000-65535 } counter reject"
+        echo "$prefix $lan ip daddr $SB_FAKEIP_INET4_RANGE counter reject"
+        config_foreach killswitch_fully_routed_rules "section" "$prefix $lan"
+    } > "$script"
+    nft -f "$script" || log "Cannot apply the rules of the killswitch" "error"
+    rm -f "$script"
+}
+
+killswitch_excluded_ip_rule() {
+    local source_ip="$1"
+    local prefix="$2"
+
+    echo "$prefix ip saddr $source_ip return"
+}
+
+killswitch_fully_routed_rules() {
+    local section="$1"
+    local prefix="$2"
+
+    section_blocks_on_failure "$section" || return 0
+    config_list_foreach "$section" "fully_routed_ips" killswitch_fully_routed_ip_rule "$prefix"
+}
+
+killswitch_fully_routed_ip_rule() {
+    local source_ip="$1"
+    local prefix="$2"
+
+    echo "$prefix ip saddr $source_ip ip daddr != @$NFT_LOCALV4_SET_NAME counter reject"
+}
+
+killswitch_off() {
+    killswitch_is_on || return 0
+
+    log "sing-box is back, the traffic of sections set to block on failure is no longer blocked"
+    nft flush chain inet "$NFT_KILLSWITCH_TABLE_NAME" "$NFT_KILLSWITCH_CHAIN_NAME"
+}
+
+# A failed start leaves sections set to block on failure blocked. It is retried with a growing delay, so
+# that a passing failure (a slow boot, a port taken for a moment) does not keep them blocked until someone
+# restarts okop by hand.
+start_retry_schedule() {
+    local delay
+    delay="$(cat "$START_RETRY_DELAY_FILE" 2> /dev/null)"
+    case "$delay" in
+    "" | *[!0-9]*) delay="$START_RETRY_MIN_DELAY" ;;
+    esac
+
+    local next=$((delay * 2))
+    [ "$next" -gt "$START_RETRY_MAX_DELAY" ] && next="$START_RETRY_MAX_DELAY"
+    echo "$next" > "$START_RETRY_DELAY_FILE"
+
+    log "Retrying the start in ${delay}s" "warn"
+    run_detached start_retry_job "$delay"
+    echo $! > "$START_RETRY_PID_FILE"
+}
+
+start_retry_job() {
+    sleep "$1"
+    /etc/init.d/okop restart
+}
+
+# After a successful start or a deliberate stop
+start_retry_cancel() {
+    if okop_background_job_running "$START_RETRY_PID_FILE"; then
+        kill "$(cat "$START_RETRY_PID_FILE")" 2> /dev/null
+    fi
+    rm -f "$START_RETRY_PID_FILE" "$START_RETRY_DELAY_FILE"
+}
+
+# The conf-dir of the dnsmasq instance okop configures, as the dnsmasq init script computes it
+dnsmasq_conf_dir() {
+    local dir name
+    dir="$(uci -q get "dhcp.@dnsmasq[0].confdir")"
+    if [ -z "$dir" ]; then
+        name="$(uci -q show "dhcp.@dnsmasq[0]" | sed -n '1s/^dhcp\.\([^=.]*\)=dnsmasq$/\1/p')"
+        dir="/tmp/dnsmasq${name:+.$name}.d"
+    fi
+
+    echo "${dir%%,*}"
+}
+
+dnsmasq_blocked_domains_file() {
+    echo "$(dnsmasq_conf_dir)/$DNSMASQ_BLOCKED_DOMAINS_FILE_NAME"
+}
+
+# Prints the domains of the rule sets of a section in the sing-box configuration, one per line. Keywords
+# and regular expressions cannot be expressed for dnsmasq and are left out with a warning.
+section_ruleset_domains() {
+    local section="$1"
+    local sing_box_config_path="$2"
+
+    local rulesets tag type format path json_tmpfile skipped
+    rulesets="$(jq -r --arg prefix "$section-" \
+        '.route.rule_set[]? | select(.tag | startswith($prefix)) | "\(.tag) \(.type) \(.format) \(.path // "")"' \
+        "$sing_box_config_path")"
+
+    json_tmpfile="$(mktemp)"
+    echo "$rulesets" | while read -r tag type format path; do
+        case "$tag" in
+        "" | *-subnets-ruleset) continue ;;
+        esac
+        [ "$type" = "remote" ] && path="$(get_cached_ruleset_filepath "$tag" "$format")"
+        [ -s "$path" ] || continue
+
+        if [ "$format" = "binary" ]; then
+            decompile_binary_ruleset "$path" "$json_tmpfile" > /dev/null 2>&1 || continue
+        else
+            cp "$path" "$json_tmpfile"
+        fi
+
+        skipped="$(jq '[.. | objects | (.domain_keyword?, .domain_regex?) | select(. != null) |
+            if type == "array" then .[] else . end] | length' "$json_tmpfile" 2> /dev/null)"
+        if [ -n "$skipped" ] && [ "$skipped" -gt 0 ]; then
+            log "$skipped keywords and regular expressions of $tag cannot be blocked through dnsmasq while sing-box is down" "warn"
+        fi
+
+        jq -r '.. | objects | (.domain?, .domain_suffix?) | select(. != null) |
+            if type == "array" then .[] else . end' "$json_tmpfile" 2> /dev/null
+    done
+    rm -f "$json_tmpfile"
+}
+
+# Writes the dnsmasq configuration that keeps the domains of sections set to block on failure on sing-box,
+# so that they do not resolve to real addresses while it is down. Exclusions go to the upstream servers,
+# they are often inside a blocked domain. dnsmasq takes the longest match, and for the same domain the
+# first section wins, exclusions first, like in sing-box. Restarts dnsmasq when the domains change.
+update_blocked_domains() {
+    local dont_touch_dhcp sing_box_config_path filepath tmpfile
+    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
+    config_get sing_box_config_path "settings" "config_path"
+    filepath="$(dnsmasq_blocked_domains_file)"
+
+    # No killswitch table: okop was stopped (e.g. a lists update from cron or the CLI after "okop stop"),
+    # or no section blocks on failure
+    if [ "$dont_touch_dhcp" -eq 1 ] || ! killswitch_table_exists || [ ! -s "$sing_box_config_path" ]; then
+        remove_blocked_domains
+        return 0
+    fi
+
+    tmpfile="$(mktemp)"
+    local section
+    for section in $(get_sections_by_connection_type "exclusion"); do
+        section_ruleset_domains "$section" "$sing_box_config_path" | sed 's|$| #|'
+    done >> "$tmpfile"
+    config_foreach update_blocked_domains_section_handler "section" "$sing_box_config_path" >> "$tmpfile"
+
+    # Only names a dnsmasq option can hold; ".example.com" (subdomains only) becomes example.com
+    awk '{ sub(/^\./, "", $1); $1 = tolower($1) }
+        $1 ~ /^[a-z0-9_-]+(\.[a-z0-9_-]+)*$/ && !seen[$1]++ { printf "server=/%s/%s\n", $1, $2 }' \
+        "$tmpfile" > "$tmpfile.conf"
+    rm -f "$tmpfile"
+
+    if [ ! -s "$tmpfile.conf" ]; then
+        rm -f "$tmpfile.conf"
+        remove_blocked_domains
+        return 0
+    fi
+
+    if cmp -s "$tmpfile.conf" "$filepath"; then
+        rm -f "$tmpfile.conf"
+        return 0
+    fi
+
+    log "Keeping $(grep -vc '/#$' "$tmpfile.conf") domains of sections set to block on failure on sing-box DNS"
+    mkdir -p "$(dirname "$filepath")"
+    mv "$tmpfile.conf" "$filepath"
+    /etc/init.d/dnsmasq restart
+}
+
+update_blocked_domains_section_handler() {
+    local section="$1"
+    local sing_box_config_path="$2"
+
+    section_blocks_on_failure "$section" || return 0
+    section_ruleset_domains "$section" "$sing_box_config_path" | sed "s|\$| $SB_DNS_INBOUND_ADDRESS|"
+}
+
+# Returns 1 when there was nothing to remove. With "keep_dnsmasq" the caller restarts dnsmasq.
+remove_blocked_domains() {
+    local mode="$1"
+
+    local filepath
+    filepath="$(dnsmasq_blocked_domains_file)"
+    [ -f "$filepath" ] || return 1
+
+    rm -f "$filepath"
+    [ "$mode" = "keep_dnsmasq" ] || /etc/init.d/dnsmasq restart
+    return 0
 }
 
 # What the DNS guard provides, from the actual state rather than the guard's counters:
@@ -1738,10 +2122,18 @@ sing_box_configure_dns() {
     config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_SERVICE_DNS_RULE_TAG" "rewrite_ttl" "$rewrite_ttl")
     config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_SERVICE_DNS_RULE_TAG" "domain" "$service_domains")
 
-    # The service domains are kept here too, so that the rule never matches everything when no lists are configured
+    # Exclusion lists get real addresses: traffic to them does not have to pass sing-box, and a domain excluded
+    # from a broader routed list (sub.example.com out of example.com) must not get a fake IP from the rule below
+    config=$(sing_box_cm_add_dns_route_rule "$config" "$SB_DNS_SERVER_TAG" "$SB_EXCLUSION_DNS_RULE_TAG")
+    # Otherwise a rule set with ip_cidr (a community list) would make sing-box ask this server first for every
+    # name and match its answer against the subnets
+    config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_EXCLUSION_DNS_RULE_TAG" "rule_set_ip_cidr_match_source" true)
+
+    # Only rule sets here: since sing-box 1.14 a rule set of several rules (e.g. "discord") is one more condition
+    # next to "domain", and the rule matched nothing. Left without rule sets, the rule would match every query,
+    # sing_box_cm_save_config_to_file drops it then.
     config=$(sing_box_cm_add_dns_route_rule "$config" "$SB_FAKEIP_DNS_SERVER_TAG" "$SB_FAKEIP_DNS_RULE_TAG")
     config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rewrite_ttl" "$rewrite_ttl")
-    config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "domain" "$service_domains")
 }
 
 sing_box_configure_route() {
@@ -1946,6 +2338,17 @@ configure_routing_for_section_lists() {
     fi
 }
 
+# The DNS rule that gets the domain lists of a section: real addresses for exclusions, fake IPs for the rest
+get_dns_rule_tag() {
+    local route_rule_tag="$1"
+
+    if [ "$route_rule_tag" = "$SB_EXCLUSION_RULE_TAG" ]; then
+        echo "$SB_EXCLUSION_DNS_RULE_TAG"
+    else
+        echo "$SB_FAKEIP_DNS_RULE_TAG"
+    fi
+}
+
 configure_community_list_handler() {
     local tag="$1"
     local section="$2"
@@ -1958,7 +2361,7 @@ configure_community_list_handler() {
 
     add_cached_remote_ruleset "$ruleset_tag" "$format" "$url" || return 1
     config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
-    config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
+    config=$(sing_box_cm_patch_dns_route_rule "$config" "$(get_dns_rule_tag "$route_rule_tag")" "rule_set" "$ruleset_tag")
 }
 
 prepare_source_ruleset() {
@@ -1987,7 +2390,7 @@ prepare_source_ruleset() {
     config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
     case "$type" in
     domains)
-        config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
+        config=$(sing_box_cm_patch_dns_route_rule "$config" "$(get_dns_rule_tag "$route_rule_tag")" "rule_set" "$ruleset_tag")
         ;;
     subnets) ;;
     *)
@@ -2035,7 +2438,7 @@ configure_user_subnet_list() {
     items_filepath="$(mktemp)"
     printf '%s\n' "$items" > "$items_filepath"
     import_plain_subnet_list_to_local_source_ruleset_chunked "$items_filepath" "$ruleset_filepath"
-    nft_add_set_elements_from_file_chunked "$items_filepath" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
+    nft_add_section_subnets_from_file "$items_filepath" "$section"
     rm -f "$items_filepath"
 }
 
@@ -2079,7 +2482,7 @@ import_local_subnets_list_handler() {
     fi
 
     import_plain_subnet_list_to_local_source_ruleset_chunked "$local_subnet_list_filepath" "$ruleset_filepath"
-    nft_add_set_elements_from_file_chunked "$local_subnet_list_filepath" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
+    nft_add_section_subnets_from_file "$local_subnet_list_filepath" "$section"
 }
 
 configure_remote_domain_or_subnet_list_handler() {
@@ -2118,7 +2521,7 @@ configure_remote_domain_or_subnet_list_handler() {
         config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
         case "$type" in
         domains)
-            config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
+            config=$(sing_box_cm_patch_dns_route_rule "$config" "$(get_dns_rule_tag "$route_rule_tag")" "rule_set" "$ruleset_tag")
             ;;
         subnets) ;;
         *) log "Unsupported remote rule set type: $type" "error" ;;
@@ -2472,10 +2875,18 @@ import_lists() {
 
     import_lists_failed=0
     : > "$CACHED_LISTS_INDEX"
+    KILLSWITCH_STAGING="$KILLSWITCH_SUBNETS_LISTS.$$"
+    : > "$KILLSWITCH_STAGING"
     config_foreach import_community_subnet_lists "section" "$mode"
     config_foreach import_domains_from_remote_domain_lists "section" "$mode"
     config_foreach import_subnets_from_remote_subnet_lists "section" "$mode"
     cleanup_list_cache
+
+    mv "$KILLSWITCH_STAGING" "$KILLSWITCH_SUBNETS_LISTS"
+    KILLSWITCH_STAGING=""
+    killswitch_commit
+    # The plain-text domain lists of the sections were rebuilt
+    update_blocked_domains
 
     return "$import_lists_failed"
 }
@@ -2520,7 +2931,7 @@ import_community_service_subnet_list_handler() {
 
     local filepath
     filepath="$(get_cached_list "$url")" || return 0
-    nft_add_set_elements_from_file_chunked "$filepath" "$NFT_TABLE_NAME" "$set_name"
+    nft_add_section_subnets_from_file "$filepath" "$section" "$set_name"
 }
 
 # The plain-text domain lists of a section share one source rule set. It is rebuilt in a temporary file
@@ -2618,7 +3029,7 @@ import_subnets_from_remote_subnet_list_handler() {
         local filepath
         filepath="$(get_cached_list "$url")" || return 0
         import_plain_subnet_list_to_local_source_ruleset_chunked "$filepath" "$building_ruleset_filepath"
-        nft_add_set_elements_from_file_chunked "$filepath" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
+        nft_add_section_subnets_from_file "$filepath" "$section"
         ;;
     esac
 }
@@ -2641,7 +3052,7 @@ import_subnets_from_ruleset_file() {
     fi
 
     if [ "$status" -eq 0 ] && extract_ip_cidr_from_json_ruleset_to_file "$json_tmpfile" "$subnets_tmpfile"; then
-        nft_add_set_elements_from_file_chunked "$subnets_tmpfile" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
+        nft_add_section_subnets_from_file "$subnets_tmpfile" "$section"
     else
         log "Cannot read subnets from $url, they will not be routed" "error"
         list_update_failed_add "$url"
@@ -3834,6 +4245,10 @@ start)
 stop)
     okop_lock
     stop
+    ;;
+stop_for_restart)
+    okop_lock
+    stop_for_restart
     ;;
 reload)
     okop_lock

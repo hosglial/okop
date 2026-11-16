@@ -1534,9 +1534,11 @@ sing_box_cm_save_config_to_file() {
     local config="$1"
     local filepath="$2"
 
+    # A DNS route rule left without a condition would match every query, it is not saved
     echo "$config" | jq \
         --arg tag "$SERVICE_TAG" \
-        'walk(if type == "object" then del(.[$tag]) else . end)' \
+        'del(.dns.rules[]? | select(.action == "route" and del(.action, .server, .rewrite_ttl, .rule_set_ip_cidr_match_source, .[$tag]) == {})) |
+        walk(if type == "object" then del(.[$tag]) else . end)' \
         > "$filepath"
 }
 

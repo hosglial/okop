@@ -3,7 +3,8 @@
 # sing-box stays down while okop is running. DNS fell back to the upstream servers, but connections to
 # subnets from the lists (Telegram, Discord, user subnets) were still sent to the dead tproxy port, so
 # those services were cut off until sing-box came back.
-# Expected: while sing-box is down they go directly, once it is back they go through it again.
+# Expected: with on_failure "direct" they go directly while sing-box is down, once it is back they go
+# through it again. The default "block" is checked by sing-box-down-blocks-sections.
 
 set -eu
 
@@ -31,6 +32,7 @@ dc start proxy > /dev/null
 load_fixture proxy
 info "Routing $SUBNET_HOST as a user subnet"
 on_router sh -c "
+    uci set okop.main.on_failure='direct'
     uci set okop.main.user_subnet_list_type='dynamic'
     uci add_list okop.main.user_subnets='$SUBNET_HOST'
     uci commit okop
