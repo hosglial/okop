@@ -96,9 +96,11 @@ confirm_podkop_removal() {
 }
 
 remove_podkop() {
+    /etc/init.d/podkop stop
+    # Copied after the stop: a running Podkop keeps shutdown_correctly=0, and Podkop installed back from
+    # such a copy takes the last shutdown for a crash and does not point dnsmasq at sing-box
     [ -f /etc/config/podkop ] && cp /etc/config/podkop "$PODKOP_CONFIG_BACKUP"
 
-    /etc/init.d/podkop stop
     /etc/init.d/podkop disable
     pkg_remove luci-i18n-podkop-ru
     pkg_remove luci-app-podkop

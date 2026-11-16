@@ -967,6 +967,13 @@ dnsmasq_blocked_domains_file() {
     echo "$(dnsmasq_conf_dir)/$DNSMASQ_BLOCKED_DOMAINS_FILE_NAME"
 }
 
+# The domains themselves, in a servers-file named by the file above: dnsmasq re-reads it on SIGHUP, so a lists
+# update does not restart dnsmasq. Hidden (a leading dot), conf-dir skips it; inside the conf-dir, so that it
+# is mounted into the procd jail of dnsmasq.
+dnsmasq_blocked_domains_servers_file() {
+    echo "$(dnsmasq_conf_dir)/.$DNSMASQ_BLOCKED_DOMAINS_FILE_NAME.servers"
+}
+
 # Prints the domains of the rule sets of a section in the sing-box configuration, one per line. Keywords
 # and regular expressions cannot be expressed for dnsmasq and are left out with a warning.
 section_ruleset_domains() {
@@ -1040,15 +1047,24 @@ update_blocked_domains() {
         return 0
     fi
 
-    if cmp -s "$tmpfile.conf" "$filepath"; then
+    local servers_filepath conf_in_place=0
+    servers_filepath="$(dnsmasq_blocked_domains_servers_file)"
+    [ "$(cat "$filepath" 2> /dev/null)" = "servers-file=$servers_filepath" ] && conf_in_place=1
+    if [ "$conf_in_place" -eq 1 ] && cmp -s "$tmpfile.conf" "$servers_filepath"; then
         rm -f "$tmpfile.conf"
         return 0
     fi
 
     log "Keeping $(grep -vc '/#$' "$tmpfile.conf") domains of sections set to block on failure on sing-box DNS"
     mkdir -p "$(dirname "$filepath")"
-    mv "$tmpfile.conf" "$filepath"
-    /etc/init.d/dnsmasq restart
+    mv "$tmpfile.conf" "$servers_filepath"
+    if [ "$conf_in_place" -eq 1 ]; then
+        # Sends SIGHUP, dnsmasq re-reads the servers-file without dropping DNS for the LAN
+        /etc/init.d/dnsmasq reload
+    else
+        echo "servers-file=$servers_filepath" > "$filepath"
+        /etc/init.d/dnsmasq restart
+    fi
 }
 
 update_blocked_domains_section_handler() {
@@ -1065,6 +1081,7 @@ remove_blocked_domains() {
 
     local filepath
     filepath="$(dnsmasq_blocked_domains_file)"
+    rm -f "$(dnsmasq_blocked_domains_servers_file)"
     [ -f "$filepath" ] || return 1
 
     rm -f "$filepath"
